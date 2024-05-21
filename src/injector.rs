@@ -46,7 +46,7 @@ fn main() {
 }
 
 fn inject(process_id: u32, command: &str) -> Result<(), Error> {
-    let runner_dll = include_bytes!("../target/x86_64-pc-windows-gnu/debug/runner.dll");
+    let runner_dll = include_bytes!("../target/x86_64-pc-windows-gnu/release/runner.dll");
     let loadlibrarya_addr = get_proc_address("Kernel32.dll", "LoadLibraryA")
         .expect("Could not get address of LoadLibraryA");
     let temp_path = get_temp_path().expect("Failed to get temp path!");
