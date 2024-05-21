@@ -17,10 +17,7 @@ use windows::{
         System::{
             Diagnostics::Debug::WriteProcessMemory,
             Memory::{VirtualAllocEx, MEM_COMMIT, PAGE_READWRITE},
-            Threading::{
-                CreateRemoteThread, OpenProcess, WaitForMultipleObjects, WaitForSingleObject,
-                INFINITE, PROCESS_ALL_ACCESS,
-            },
+            Threading::{CreateRemoteThread, OpenProcess, PROCESS_ALL_ACCESS},
         },
     },
 };

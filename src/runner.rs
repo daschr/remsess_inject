@@ -1,14 +1,9 @@
-use std::ffi::CString;
 use std::fs::{self, File};
 use std::io::Write;
 use std::path::PathBuf;
 use std::process::Command;
 
-use windows::core::PCSTR;
-use windows::Win32::Foundation::{FreeLibrary, HINSTANCE, HMODULE};
-use windows::Win32::System::LibraryLoader::{
-    FreeLibraryAndExitThread, GetModuleHandleA, GetModuleHandleExA,
-};
+use windows::Win32::Foundation::HINSTANCE;
 use windows::Win32::System::SystemServices::{
     DLL_PROCESS_ATTACH, DLL_PROCESS_DETACH, DLL_THREAD_ATTACH, DLL_THREAD_DETACH,
 };
@@ -17,7 +12,8 @@ use crate::utils::{get_module_name, get_temp_path};
 mod utils;
 
 #[no_mangle]
-extern "C" fn DllMain(hinstDll: HINSTANCE, fwdReason: u32, lpvReserved: *const u32) -> bool {
+#[allow(non_snake_case)]
+extern "C" fn DllMain(hinstDll: HINSTANCE, fwdReason: u32, _lpvReserved: *const u32) -> bool {
     let mod_path: Option<PathBuf> = get_module_name(hinstDll).map(|x| PathBuf::from(x));
     let cmd_path: Option<PathBuf> = {
         if let Some(mod_path) = mod_path.as_ref() {

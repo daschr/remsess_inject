@@ -6,20 +6,19 @@ use std::{
 use windows::{
     core::{Error, PCSTR},
     Win32::{
-        Foundation::{CloseHandle, FARPROC, HANDLE_PTR, HINSTANCE, HMODULE},
+        Foundation::{CloseHandle, FARPROC, HINSTANCE},
         Storage::FileSystem::GetTempPathA,
         System::{
             Diagnostics::ToolHelp::{
                 CreateToolhelp32Snapshot, Process32First, Process32Next, PROCESSENTRY32,
                 TH32CS_SNAPPROCESS,
             },
-            LibraryLoader::{
-                GetModuleFileNameA, GetModuleHandleA, GetModuleHandleExA, GetProcAddress,
-            },
+            LibraryLoader::{GetModuleFileNameA, GetModuleHandleA, GetProcAddress},
         },
     },
 };
 
+#[allow(unused)]
 pub fn get_module_name(handle: HINSTANCE) -> Option<String> {
     let mut path = vec![0u8; 1024];
     // this should never fail
@@ -36,6 +35,7 @@ pub fn get_module_name(handle: HINSTANCE) -> Option<String> {
     String::from_utf8(path).ok()
 }
 
+#[allow(unused)]
 pub fn get_temp_path() -> Option<String> {
     let mut path = vec![0u8; 1024];
     // this should never fail
@@ -52,6 +52,7 @@ pub fn get_temp_path() -> Option<String> {
     String::from_utf8(path).ok()
 }
 
+#[allow(unused)]
 pub fn get_proc_address(library_name: &str, fn_name: &str) -> Result<FARPROC, Error> {
     let lib_name = CString::new(library_name).unwrap();
 
@@ -67,6 +68,7 @@ pub fn get_proc_address(library_name: &str, fn_name: &str) -> Result<FARPROC, Er
     }
 }
 
+#[allow(unused)]
 pub fn find_processes_by_name(name: &str) -> Result<Option<Vec<u32>>, Error> {
     let proc_snapshot = unsafe { CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0)? };
 
