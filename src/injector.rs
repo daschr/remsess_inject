@@ -140,7 +140,7 @@ fn store_str_in_rem_proc_mem(
     data: &str,
 ) -> Result<*mut core::ffi::c_void, Error> {
     let data = CString::new(data).unwrap();
-    let data_len = data.count_bytes() + 1;
+    let data_len = data.as_bytes().len() + 1;
     let raw_data = data.into_raw();
 
     let alloc_mem =
