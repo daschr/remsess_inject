@@ -7,6 +7,7 @@ use std::{
     fs::{self, File},
     io::Write,
     path::PathBuf,
+    process,
     time::Duration,
 };
 
@@ -23,6 +24,12 @@ use windows::{
 };
 
 fn main() {
+    let args: Vec<String> = std::env::args().collect();
+    if args.len() < 2 {
+        eprintln!("Usage: {} [command to inject]", args[0]);
+        process::exit(1);
+    }
+
     let explorers: Vec<u32> = match find_processes_by_name("explorer.exe") {
         Err(e) => {
             eprintln!("Got error while finding processes: {:?}", e);
@@ -34,8 +41,6 @@ fn main() {
         }
         Ok(Some(list)) => list,
     };
-
-    let args: Vec<String> = std::env::args().collect();
 
     for explorer_pid in explorers.iter() {
         println!("Trying to inject into {}", explorer_pid);
