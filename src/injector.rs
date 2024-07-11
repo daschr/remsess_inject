@@ -18,7 +18,7 @@ use windows::{
         System::{
             Diagnostics::Debug::WriteProcessMemory,
             Memory::{VirtualAllocEx, MEM_COMMIT, PAGE_READWRITE},
-            Threading::{CreateRemoteThread, OpenProcess, PROCESS_ALL_ACCESS},
+            Threading::{CreateRemoteThread, GetExitCodeProcess, OpenProcess, PROCESS_ALL_ACCESS},
         },
     },
 };
@@ -32,7 +32,7 @@ fn main() {
 
     let explorers: Vec<u32> = match find_processes_by_name("explorer.exe") {
         Err(e) => {
-            eprintln!("Got error while finding processes: {:?}", e);
+            eprintln!("Got an error while finding processes: {:?}", e);
             return;
         }
         Ok(None) => {
@@ -128,13 +128,29 @@ fn inject(process_id: u32, command: &str) -> Result<(), Error> {
         CloseHandle(thread_h)?;
     }
 
-    while command_path.exists() {
+    loop {
+        let mut exit_code: u32 = 0;
+        unsafe {
+            GetExitCodeProcess(proc_h, &mut exit_code as *mut _).ok();
+        }
+
+        if !command_path.exists() || exit_code != 259 {
+            if command_path.exists() {
+                if let Err(e) = fs::remove_file(&command_path) {
+                    eprintln!("Failed to remove {}: {:?}", command_path.display(), e);
+                }
+            }
+            break;
+        }
         println!("Waiting...");
         std::thread::sleep(Duration::from_secs(1));
     }
 
-    if let Err(e) = fs::remove_file(&lib_path) {
-        eprintln!("Failed to remove {}: {:?}", lib_path.display(), e);
+    for _ in 0..3 {
+        if let Ok(_) = fs::remove_file(&lib_path) {
+            break;
+        }
+        std::thread::sleep(Duration::from_secs(1));
     }
 
     Ok(())
