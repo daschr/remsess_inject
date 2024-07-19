@@ -1,12 +1,16 @@
 use std::{
-    ffi::{CStr, CString},
+    ffi::{c_void, CStr, CString},
     mem::size_of,
 };
 
 use windows::{
-    core::{Error, PCSTR},
+    core::{Error, PCSTR, PCWSTR, PWSTR},
     Win32::{
         Foundation::{CloseHandle, FARPROC, HINSTANCE},
+        Security::{
+            GetTokenInformation, LookupAccountSidW, TokenUser, SID_NAME_USE, TOKEN_QUERY,
+            TOKEN_USER,
+        },
         Storage::FileSystem::GetTempPathA,
         System::{
             Diagnostics::ToolHelp::{
@@ -14,6 +18,7 @@ use windows::{
                 TH32CS_SNAPPROCESS,
             },
             LibraryLoader::{GetModuleFileNameA, GetModuleHandleA, GetProcAddress},
+            Threading::{OpenProcess, OpenProcessToken, PROCESS_QUERY_INFORMATION},
         },
     },
 };
@@ -108,4 +113,60 @@ pub fn find_processes_by_name(name: &str) -> Result<Option<Vec<u32>>, Error> {
     } else {
         Some(proc_list)
     })
+}
+
+#[allow(unused)]
+pub fn get_process_owner(pid: u32) -> Result<(String, String), Error> {
+    let proc_handle = unsafe { OpenProcess(PROCESS_QUERY_INFORMATION, false, pid)? };
+
+    let mut proc_token = windows::Win32::Foundation::HANDLE(0);
+    unsafe { OpenProcessToken(proc_handle, TOKEN_QUERY, &mut proc_token as *mut _)? };
+
+    let mut owner_length = size_of::<TOKEN_USER>() as u32;
+
+    unsafe {
+        GetTokenInformation(proc_token, TokenUser, None, 0, &mut owner_length as *mut _).ok();
+    }
+
+    let mut owner = vec![0u8; owner_length as usize];
+
+    unsafe {
+        GetTokenInformation(
+            proc_token,
+            TokenUser,
+            Some(owner.as_mut_ptr() as *mut c_void),
+            owner_length,
+            &mut owner_length as *mut _,
+        )?;
+    }
+
+    let owner: TOKEN_USER = unsafe { std::ptr::read(owner.as_ptr() as *mut _) };
+
+    let mut username = [0u16; 256];
+    let mut username_length = 256u32;
+    let mut domain = [0u16; 256];
+    let mut domain_length = 256u32;
+    let mut sid_type = SID_NAME_USE::default();
+
+    unsafe {
+        LookupAccountSidW(
+            PCWSTR::null(),
+            owner.User.Sid,
+            PWSTR(username.as_mut_ptr()),
+            &mut username_length as *mut _,
+            PWSTR(domain.as_mut_ptr()),
+            &mut domain_length as *mut _,
+            &mut sid_type as *mut _,
+        )?;
+    }
+
+    unsafe {
+        CloseHandle(proc_token).ok();
+        CloseHandle(proc_handle).ok();
+    }
+
+    Ok((
+        String::from_utf16(&domain[..domain_length as usize]).unwrap(),
+        String::from_utf16(&username[..username_length as usize]).unwrap(),
+    ))
 }

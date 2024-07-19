@@ -25,8 +25,8 @@ use windows::{
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
-    if args.len() < 2 {
-        eprintln!("Usage: {} [command to inject]", args[0]);
+    if args.len() != 2 && args.len() != 3 {
+        eprintln!("Usage: {} [?username] [command to inject]", args[0]);
         process::exit(1);
     }
 
@@ -42,9 +42,34 @@ fn main() {
         Ok(Some(list)) => list,
     };
 
+    let (wanted_username, cmd) = if args.len() > 2 {
+        (Some(&args[1]), &args[2])
+    } else {
+        (None, &args[1])
+    };
+
     for explorer_pid in explorers.iter() {
+        if let Some(wanted_username) = wanted_username {
+            match get_process_owner(*explorer_pid) {
+                Ok((domain, username)) => {
+                    println!("[{}] {}\\{}", explorer_pid, domain, username);
+                    if username.as_str() != wanted_username {
+                        println!(
+                            "Skipping {}, since it is not owned by {}",
+                            explorer_pid, wanted_username
+                        );
+                        continue;
+                    }
+                }
+                Err(e) => {
+                    eprintln!("Failed to get owner for {}: {:?}", explorer_pid, e);
+                    continue;
+                }
+            }
+        }
+
         println!("Trying to inject into {}", explorer_pid);
-        if let Err(e) = inject(*explorer_pid, &args[1]) {
+        if let Err(e) = inject(*explorer_pid, cmd) {
             eprintln!("Failed to inject into {}: {:?}", explorer_pid, e);
         }
     }
