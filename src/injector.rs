@@ -52,8 +52,9 @@ fn main() {
         if let Some(wanted_username) = wanted_username {
             match get_process_owner(*explorer_pid) {
                 Ok((domain, username)) => {
-                    println!("[{}] {}\\{}", explorer_pid, domain, username);
-                    if username.as_str() != wanted_username {
+                    let full_name = format!("{}\\{}", domain, username);
+                    println!("[{}] {}", explorer_pid, full_name);
+                    if full_name.as_str() != wanted_username {
                         println!(
                             "Skipping {}, since it is not owned by {}",
                             explorer_pid, wanted_username
