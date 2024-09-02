@@ -6,7 +6,7 @@ use std::{
     ffi::CString,
     fs::{self, File},
     io::Write,
-    path::PathBuf,
+    path::Path,
     process,
     time::Duration,
 };
@@ -50,45 +50,58 @@ fn main() {
 
     for explorer_pid in explorers.iter() {
         if let Some(wanted_username) = wanted_username {
-            match get_process_owner(*explorer_pid) {
-                Ok((domain, username)) => {
-                    let full_name = format!("{}\\{}", domain, username);
-                    println!("[{}] {}", explorer_pid, full_name);
-                    if full_name.as_str() != wanted_username {
+            let owner = match get_process_owner(*explorer_pid) {
+                Ok(owner) => {
+                    println!("[{}] {}\\{}", explorer_pid, owner.domain, owner.username);
+                    if owner.username.as_str() != wanted_username {
                         println!(
                             "Skipping {}, since it is not owned by {}",
                             explorer_pid, wanted_username
                         );
                         continue;
                     }
+
+                    owner
                 }
                 Err(e) => {
                     eprintln!("Failed to get owner for {}: {:?}", explorer_pid, e);
                     continue;
                 }
-            }
-        }
+            };
 
-        println!("Trying to inject into {}", explorer_pid);
-        if let Err(e) = inject(*explorer_pid, cmd) {
-            eprintln!("Failed to inject into {}: {:?}", explorer_pid, e);
+            println!("Trying to inject into {}", explorer_pid);
+            if let Err(e) = inject(*explorer_pid, cmd, Some(&owner.profile_path)) {
+                eprintln!("Failed to inject into {}: {:?}", explorer_pid, e);
+            }
+        } else {
+            println!("Trying to inject into {}", explorer_pid);
+            if let Err(e) = inject(*explorer_pid, cmd, None) {
+                eprintln!("Failed to inject into {}: {:?}", explorer_pid, e);
+            }
         }
     }
 }
 
-fn inject(process_id: u32, command: &str) -> Result<(), Error> {
+fn inject(process_id: u32, command: &str, profile_path: Option<&Path>) -> Result<(), Error> {
     let runner_dll = include_bytes!("../target/x86_64-pc-windows-gnu/release/runner.dll");
     let loadlibrarya_addr = get_proc_address("Kernel32.dll", "LoadLibraryA")
         .expect("Could not get address of LoadLibraryA");
-    let temp_path = get_temp_path().expect("Failed to get temp path!");
+    let temp_path = match profile_path {
+        Some(path) => {
+            let mut p = path.to_path_buf();
+            p.push("AppData\\Local\\Temp");
+            p
+        }
+        None => get_temp_path().expect("Failed to get temp path!"),
+    };
 
     let proc_h = unsafe { OpenProcess(PROCESS_ALL_ACCESS, true, process_id)? };
 
     let mut rng = thread_rng();
 
     let (lib_path, command_path) = {
-        let mut lib_path = PathBuf::from(&temp_path);
-        let mut cmd_path = PathBuf::from(&temp_path);
+        let mut lib_path = temp_path.clone();
+        let mut cmd_path = temp_path.clone();
 
         let mut rand_str = (0..12)
             .map(|_| rng.sample(Alphanumeric) as char)

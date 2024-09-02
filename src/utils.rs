@@ -1,6 +1,7 @@
 use std::{
     ffi::{c_void, CStr, CString},
     mem::size_of,
+    path::PathBuf,
 };
 
 use windows::{
@@ -20,6 +21,7 @@ use windows::{
             LibraryLoader::{GetModuleFileNameA, GetModuleHandleA, GetProcAddress},
             Threading::{OpenProcess, OpenProcessToken, PROCESS_QUERY_INFORMATION},
         },
+        UI::Shell::GetUserProfileDirectoryW,
     },
 };
 
@@ -41,7 +43,7 @@ pub fn get_module_name(handle: HINSTANCE) -> Option<String> {
 }
 
 #[allow(unused)]
-pub fn get_temp_path() -> Option<String> {
+pub fn get_temp_path() -> Option<PathBuf> {
     let mut path = vec![0u8; 1024];
     // this should never fail
     let l = unsafe { GetTempPathA(Some(&mut path)) };
@@ -54,7 +56,7 @@ pub fn get_temp_path() -> Option<String> {
         path.pop();
     }
 
-    String::from_utf8(path).ok()
+    String::from_utf8(path).map(PathBuf::from).ok()
 }
 
 #[allow(unused)]
@@ -116,7 +118,14 @@ pub fn find_processes_by_name(name: &str) -> Result<Option<Vec<u32>>, Error> {
 }
 
 #[allow(unused)]
-pub fn get_process_owner(pid: u32) -> Result<(String, String), Error> {
+pub struct ProcessOwner {
+    pub domain: String,
+    pub username: String,
+    pub profile_path: PathBuf,
+}
+
+#[allow(unused)]
+pub fn get_process_owner(pid: u32) -> Result<ProcessOwner, Error> {
     let proc_handle = unsafe { OpenProcess(PROCESS_QUERY_INFORMATION, false, pid)? };
 
     let mut proc_token = windows::Win32::Foundation::HANDLE(0);
@@ -160,13 +169,33 @@ pub fn get_process_owner(pid: u32) -> Result<(String, String), Error> {
         )?;
     }
 
+    let mut profile_path = [0u16; 512];
+    let mut profile_path_length = 512u32;
+
+    unsafe {
+        GetUserProfileDirectoryW(
+            proc_token,
+            PWSTR(profile_path.as_mut_ptr()),
+            &mut profile_path_length as *mut _,
+        )?;
+    }
+
+    if profile_path_length > 0 && profile_path[profile_path_length as usize - 1] == 0 {
+        profile_path_length -= 1;
+    }
+
     unsafe {
         CloseHandle(proc_token).ok();
         CloseHandle(proc_handle).ok();
     }
 
-    Ok((
-        String::from_utf16(&domain[..domain_length as usize]).unwrap(),
-        String::from_utf16(&username[..username_length as usize]).unwrap(),
-    ))
+    let owner = ProcessOwner {
+        domain: String::from_utf16(&domain[..domain_length as usize]).unwrap(),
+        username: String::from_utf16(&username[..username_length as usize]).unwrap(),
+        profile_path: PathBuf::from(
+            String::from_utf16(&profile_path[..profile_path_length as usize]).unwrap(),
+        ),
+    };
+
+    Ok(owner)
 }
